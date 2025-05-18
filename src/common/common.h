@@ -14,5 +14,23 @@ typedef int sock_t;
 
 int socket_close(sock_t sockfd);
 
+
+typedef enum MessageKind{
+	PLAYER_JOINED,
+}MessageKind;
+
+
+typedef struct Position{
+	float x, y;
+}Position;
+
+typedef struct Game
+{
+	Position player_position, other_player_position;
+}Game;
+
+#define SERVER_PORT "2137"
+
+
 #define TODO(msg) assert(0 && msg)
 #endif COMMON_H

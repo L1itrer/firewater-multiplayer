@@ -12,12 +12,11 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#define SERVER_PORT "8080"
 #define MAX_GAMES 5
 #define MAX_CONNECTIONS MAX_GAMES * 2 + 1
 
 
-void server_setup()
+void server_setup(void)
 {
 #ifdef WIN32
     WSADATA wsa_data;
@@ -38,7 +37,7 @@ void server_setup()
 #endif
 }
 
-void server_end()
+void server_end(void)
 {
     // does the existance of function even make sense? idk
 #ifdef WIN32
@@ -55,7 +54,7 @@ int server_get_addresses(struct addrinfo** info)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
     int adderr;
-    if ((adderr = getaddrinfo(NULL, SERVER_PORT, &hints, info)) != 0)
+    if ((adderr = getaddrinfo("0.0.0.0", SERVER_PORT, &hints, info)) != 0)
     {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(adderr));
         return 1;
@@ -66,7 +65,7 @@ int server_get_addresses(struct addrinfo** info)
 sock_t server_bind(struct addrinfo *info)
 {
     struct addrinfo* ptr;
-    sock_t sockfd;
+    sock_t sockfd = 0;
     int yes = 1;
     for (ptr = info;ptr != NULL;ptr = ptr->ai_next)
     {
@@ -82,7 +81,7 @@ sock_t server_bind(struct addrinfo *info)
             exit(1);
         }
 
-        if (bind(sockfd, ptr->ai_addr, ptr->ai_addrlen) == -1)
+        if (bind(sockfd, ptr->ai_addr, (int)ptr->ai_addrlen) == -1)
         {
             socket_close(sockfd);
             perror("[ERROR]: bind()");
@@ -98,10 +97,11 @@ sock_t server_bind(struct addrinfo *info)
     return sockfd;
 }
 
-int main()
+int main(void)
 {
     server_setup();
     struct addrinfo* server_info;
+    struct sockaddr addr = { 0 };
     if (server_get_addresses(&server_info) != 0) return 1;
     sock_t server_fd = server_bind(server_info);
 
@@ -113,11 +113,31 @@ int main()
         return 1;
     }
 
-    printf("[INFO]: Server awaiting connections!");
+    printf("[INFO]: Server awaiting connections!\n");
 
 
 
+    const char msg[] = "Hello from server";
+    sock_t connfd;
+    int addrlen = sizeof(addr);
+    for (;;)
+    {
+       
+        if ((connfd = accept(server_fd, &addr, &addrlen)) == -1)
+        {
+            fprintf(stderr, "[ERROR]: accept()");
+            continue;
+        }
+        printf("[INFO]: New client connected!\n");
+        if (send(connfd, msg, sizeof(msg), 0) == -1)
+        {
+            fprintf(stderr, "[ERROR]: send()\n");
+        }
+        socket_close(connfd);
+        printf("[INFO]: Client disconnected!\n");
+    }
 
+    socket_close(server_fd);
     server_end();
     return 0;
 }
