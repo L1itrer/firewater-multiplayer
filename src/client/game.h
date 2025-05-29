@@ -1,9 +1,11 @@
 #ifndef GAME_H
 #define GAME_H
+#include <net.h>
+#include <common.h>
 
 void game_update();
 void game_draw();
-void game_init();
+int game_init(const char* ip, const char* port);
 
 typedef struct Vec2{
     float x, y;

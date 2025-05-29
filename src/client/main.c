@@ -18,7 +18,10 @@ int main(void)
 {
     InitWindow(800, 600, "Hello from client!");
     
-    game_init();
+    if (!game_init("127.0.0.1", "2137"))
+    {
+        return 1;
+    }
 
     while (!WindowShouldClose())
     {

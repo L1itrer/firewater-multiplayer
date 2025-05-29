@@ -9,9 +9,11 @@ typedef unsigned long long sock_t;
 #else
 typedef int sock_t;
 
-
 #endif //WIN32
 
+#ifndef INVALID_SOCKET
+#define INVALID_SOCKET -1
+#endif //INVALID_SOCKET
 int socket_close(sock_t sockfd);
 
 
@@ -23,23 +25,10 @@ typedef enum MessageKind{
 }MessageKind;
 
 
-// typedef struct Position{
-// 	float x, y;
-// }Position;
-
-// typedef struct Game
-// {
-// 	Position player_position, other_player_position;
-// }Game;
-
-typedef enum {
-	PLAYER_JOINED,
-	PLAYER_MOVING,
-}MessageKind;
-
-
 #define SERVER_PORT "2137"
 
+unsigned int pack(unsigned char *buf, char *format, ...);
+void unpack(unsigned char *buf, char *format, ...);
 
 #define TODO(msg) assert(0 && msg)
 #endif COMMON_H

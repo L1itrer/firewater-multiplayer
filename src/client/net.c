@@ -7,6 +7,8 @@
 #define INVALID_SOCKET -1
 #endif
 
+sock_t g_connection = 0;
+
 sock_t server_connect(const char* ip, const char* port)
 {
    #ifdef WIN32
@@ -36,7 +38,8 @@ sock_t server_connect(const char* ip, const char* port)
     if (rv = getaddrinfo(ip, port, &hints, &serverinfo))
     {
         fprintf(stderr, "[ERROR]: getaddrinfo(): %s\n", gai_strerror(rv));
-        exit(1);
+        // exit(1);
+        return INVALID_SOCKET;
     }
     for (ptr = serverinfo;ptr != NULL; ptr = ptr->ai_next)
     {
@@ -59,20 +62,21 @@ sock_t server_connect(const char* ip, const char* port)
             continue;
         }
     }
-    if (serverfd == 0)
+    if (serverfd == 0 || serverfd == INVALID_SOCKET)
     {
         fprintf(stdout, "[INFO]: Could not connect to server");
-        exit(1);
+        // exit(1);
+        return INVALID_SOCKET;
     }
+    g_connection = serverfd;
     return serverfd;
-
 }
-int server_send(sock_t serverfd, const char* buffer, size_t len)
+int server_send(const char* buffer, size_t len)
 {
-  return send(serverfd, buffer, len, 0);
+    return send(g_connection, buffer, len, 0);
 }
-int server_recv(sock_t serverfd, const char* buffer, size_t max_size)
+int server_recv(const char* buffer, size_t max_size)
 {
-  return recv(serverfd, buffer, (int) max_size, 0);
+    return recv(g_connection, buffer, (int) max_size, 0);
 }
 
