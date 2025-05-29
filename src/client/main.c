@@ -1,28 +1,37 @@
 #include <raylib.h>
 #include <common.h>
+#include <game.h>
+#include <platform.h>
 #include "net.h"
 
-int main()
+
+void draw_rectangle(Rect r, ColorHSV c)
 {
-    //InitWindow(800, 600, "Hello from client!");
-    //
-    //while (!WindowShouldClose())
-    //{
-    //    BeginDrawing();
-    //    ClearBackground(GetColor(0x181818));
-    //    DrawText("well", 380, 300, 24, GOLD);
-    //    EndDrawing();
-    //}
-    sock_t serverfd = server_connect("127.0.0.1", SERVER_PORT);
-    char buffer[128] = { 0 };
-    if (server_recv(serverfd, buffer, 128) == -1)
+    Rectangle rec = {
+        .x = r.x, .y = r.y, .width = r.width, .height = r.height
+    };
+    Color color = ColorFromHSV(c.hue, c.saturation, c.value);
+    DrawRectangleRec(rec, color);
+}
+
+int main(void)
+{
+    InitWindow(800, 600, "Hello from client!");
+    
+    game_init();
+
+    while (!WindowShouldClose())
     {
-        printf("error reaceving data\n");
-        exit(1);
+        BeginDrawing();
+        ClearBackground(GetColor(0x181818));
+        DrawText("well", 380, 300, 24, GOLD);
+        game_update();
+        game_draw();
+        EndDrawing();
     }
-    printf("%s\n", buffer);
 
 
-    //CloseWindow();
+
+    CloseWindow();
     return 0;
 }

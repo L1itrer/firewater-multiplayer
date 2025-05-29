@@ -5,6 +5,9 @@ int add(int a, int b)
 }
 
 
+
+
+
 #ifdef WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -15,5 +18,9 @@ int socket_close(sock_t sockfd)
 }
 
 #else
+int socket_close(sock_t sockfd)
+{
+    return close(sockfd);
+}
 
 #endif

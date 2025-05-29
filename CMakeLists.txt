@@ -10,7 +10,7 @@ add_subdirectory(src/client/dependencies/raylib)
 add_library(common src/common/common.c src/common/common.h)
 target_include_directories(common PUBLIC    src/common)
 
-add_executable(FireWater src/client/main.c src/client/net.c)
+add_executable(FireWater src/client/main.c src/client/net.c src/client/game.c)
 target_link_libraries(FireWater PRIVATE raylib)
 target_link_libraries(FireWater PUBLIC common)
 target_include_directories(FireWater PUBLIC src/common/)
