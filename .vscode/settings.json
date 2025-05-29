@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        ".als.json": "jsonc",
-        "*.embeddedhtml": "html",
-        "*.cxx": "cpp",
-        "common.h": "c"
-    }
-}
