@@ -16,11 +16,12 @@ void draw_rectangle(Rect r, ColorHSV c)
 
 int main(void)
 {
-    InitWindow(800, 600, "Hello from client!");
-    if (!game_init("127.0.0.1", "2137"))
+    if (!game_init("127.0.0.1", SERVER_PORT))
     {
+        printf("Error when connecting\n");
         return 1;
     }
+    InitWindow(800, 600, "Hello from client!");
 
     while (!WindowShouldClose())
     {

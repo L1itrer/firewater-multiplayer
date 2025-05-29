@@ -25,12 +25,19 @@ int socket_setblocking(sock_t sockfd, int noblock)
     u_long mode = noblock;
     return ioctlsocket(sockfd, FIONBIO, &mode);
 }
-
+int socket_poll(Pollfd fds[], unsigned int count, int timeout)
+{
+    return WSAPoll(fds, count, timeout);
+}
 
 #else
 int socket_close(sock_t sockfd)
 {
     return close(sockfd);
+}
+int socket_poll(Pollfd fds[], unsigned int count, int timeout)
+{
+    return poll(fds, count, timeout);
 }
 #endif
 /*

@@ -65,16 +65,16 @@ sock_t server_connect(const char* ip, const char* port)
     }
     if (serverfd == 0 || serverfd == INVALID_SOCKET)
     {
-        fprintf(stdout, "[INFO]: Could not connect to server");
-        // exit(1);
+        fprintf(stdout, "[INFO]: Could not connect to server\n");
+        exit(1);
         return INVALID_SOCKET;
     }
-    if (socket_setblocking(serverfd, 1) != 0)
-    {
-        printf("Failed to set non-blocking mode\n");
-        socket_close(serverfd);
-        return -1;
-    }
+    //if (socket_setblocking(serverfd, 1) != 0)
+    //{
+    //    printf("Failed to set non-blocking mode\n");
+    //    socket_close(serverfd);
+    //    return -1;
+    //}
     g_connection = serverfd;
     return serverfd;
 }

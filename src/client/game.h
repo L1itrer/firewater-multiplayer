@@ -1,6 +1,5 @@
 #ifndef GAME_H
 #define GAME_H
-#include <net.h>
 #include <common.h>
 
 void game_update();

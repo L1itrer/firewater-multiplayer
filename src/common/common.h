@@ -14,14 +14,23 @@ typedef int sock_t;
 #ifndef INVALID_SOCKET
 #define INVALID_SOCKET -1
 #endif //INVALID_SOCKET
+
+typedef struct Pollfd{
+    sock_t fd;
+    short events;
+    short revents;
+}Pollfd;
+
 int socket_close(sock_t sockfd);
-int socket_setblocking(sock_t sockfd, int block);
+int socket_setblocking(sock_t sockfd, int noblock);
+int socket_poll(Pollfd fds[], unsigned int count, int timeout);
 
 typedef enum MessageKind{
     PLAYER_QUEUE,
     PLAYER_START,
 	PLAYER_MOVING,
     JUMP,
+    SERVER_FULL
 }MessageKind;
 
 

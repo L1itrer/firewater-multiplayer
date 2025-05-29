@@ -9,12 +9,43 @@
 
 #include <common.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <errno.h>
 
 #define MAX_GAMES 5
-#define MAX_CONNECTIONS MAX_GAMES * 2 + 1
+#define MAX_CONNECTIONS (MAX_GAMES * 2 + 1)
 
+typedef struct Pollfds {
+    Pollfd fds[MAX_CONNECTIONS];
+    int game_index[MAX_CONNECTIONS];
+    int count;
+}Pollfds;
+
+void pollfds_add(Pollfds* pollfds, sock_t fd, int game_index)
+{
+    Pollfd temp = { 0 };
+    temp.fd = fd;
+    temp.events = POLLIN | POLLHUP;
+    pollfds->game_index[pollfds->count] = game_index;
+    pollfds->fds[pollfds->count] = temp;
+    pollfds->count += 1;
+}
+
+void pollfds_remove(Pollfds* pollfds, int index)
+{
+    pollfds->fds[index] = pollfds->fds[pollfds->count - 1];
+    pollfds->count -= 1;
+}
+
+typedef struct SingleGameState {
+    int player_socket_index, other_socket_index;
+}SingleGameState;
+
+typedef struct Games {
+    SingleGameState game[MAX_GAMES];
+    int count;
+}Games;
 
 void server_setup(void)
 {
@@ -97,44 +128,125 @@ sock_t server_bind(struct addrinfo *info)
     return sockfd;
 }
 
+void game_start()
+{
+
+}
+
+void handle_new_connection(sock_t serverfd, Pollfds* sockets, Games* games)
+{
+    struct sockaddr addr = { 0 };
+    int addrlen = sizeof(addr);
+    sock_t connfd;
+    if ((connfd = accept(serverfd, &addr, &addrlen)) == -1)
+    {
+        fprintf(stderr, "[ERROR]: accept()");
+    }
+
+    // i don't know what has to happen for the count to be higher than max connections
+    // but i don't wanna tempt fate
+    if (sockets->count >= MAX_CONNECTIONS)
+    {
+        char buffer[8] = { 0 };
+        send(connfd, buffer, pack(buffer, "l", (uint32_t)SERVER_FULL), 0);
+        socket_close(connfd);
+        return;
+    }
+    printf("[INFO]: New client connected!\n");
+
+    for (int i = 0;i < sockets->count;++i)
+    {
+        sock_t sock = sockets->fds[i].fd;
+        if (sock == serverfd) continue;
+        send(sock, "someone joined!", 15, 0);
+    }
+
+    // even connections == someone is waiting for a game
+    // 
+    //if (sockets->count % 2 == 0)
+    //{
+    //    pollfds_add(sockets, connfd, games->count);
+    //    games->game[games->count].other_socket_index = sockets->count - 1; // we just added one
+    //    game_start(); // TODO
+    //}
+    //else
+    //{
+
+    //}
+}
+
+void handle_client_msg()
+{
+
+}
+
 int main(void)
 {
     server_setup();
     struct addrinfo* server_info;
     struct sockaddr addr = { 0 };
+    Games games = { 0 };
+    Pollfds sockets = { 0 };
     if (server_get_addresses(&server_info) != 0) return 1;
     sock_t server_fd = server_bind(server_info);
 
-    freeaddrinfo(server_info);
 
     if (listen(server_fd, 10) == -1)
     {
         fprintf(stderr, "[ERROR]: listen()");
         return 1;
     }
+    freeaddrinfo(server_info);
+    socket_setblocking(server_fd, 1);
+    pollfds_add(&sockets, server_fd, -1);
+    sockets.fds[0].events = POLLIN;
 
     printf("[INFO]: Server awaiting connections!\n");
 
-
-
-    const char msg[] = "Hello from server";
-    sock_t connfd;
     int addrlen = sizeof(addr);
     for (;;)
     {
-       
-        if ((connfd = accept(server_fd, &addr, &addrlen)) == -1)
+        int ready_to_read_count = socket_poll(sockets.fds, sockets.count, 50);
+        if (ready_to_read_count == SOCKET_ERROR)
         {
-            fprintf(stderr, "[ERROR]: accept()");
-            continue;
+            int error_code = WSAGetLastError();
+
+            // Buffer to hold the error message
+            char* error_message = NULL;
+
+            // Format the error message
+            FormatMessage(
+                FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                NULL,
+                error_code,
+                MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                (LPSTR)&error_message,
+                0,
+                NULL
+            );
+            fprintf(stderr, "%s: %d - %s", "error", error_code, error_message);
+
+            // Free the buffer allocated by FormatMessage
+            LocalFree(error_message);
+            return 1;
         }
-        printf("[INFO]: New client connected!\n");
-        if (send(connfd, msg, sizeof(msg), 0) == -1)
+        for (int i = 0;i < sockets.count && ready_to_read_count > 0;++i)
         {
-            fprintf(stderr, "[ERROR]: send()\n");
+            sock_t sock = sockets.fds[i].fd;
+            if ((sockets.fds[i].revents & POLLIN ) || (sockets.fds[i].revents & POLLHUP))
+            {
+                if (sock == server_fd)
+                {
+                    // a new available connection
+                    handle_new_connection(server_fd, &sockets, &games); //TODO
+                }
+                else
+                {
+                    handle_client_msg(); // TODO
+                }
+                ready_to_read_count -= 1;
+            }
         }
-        socket_close(connfd);
-        printf("[INFO]: Client disconnected!\n");
     }
 
     socket_close(server_fd);
