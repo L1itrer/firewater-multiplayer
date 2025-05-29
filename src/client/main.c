@@ -1,8 +1,8 @@
 #include <raylib.h>
 #include <common.h>
 #include <game.h>
+#include <stdint.h>
 #include <platform.h>
-#include "net.h"
 
 
 void draw_rectangle(Rect r, ColorHSV c)
@@ -17,7 +17,6 @@ void draw_rectangle(Rect r, ColorHSV c)
 int main(void)
 {
     InitWindow(800, 600, "Hello from client!");
-    
     if (!game_init("127.0.0.1", "2137"))
     {
         return 1;

@@ -20,13 +20,19 @@ int socket_close(sock_t sockfd)
 {
     return closesocket(sockfd);
 }
+int socket_setblocking(sock_t sockfd, int noblock)
+{
+    u_long mode = noblock;
+    return ioctlsocket(sockfd, FIONBIO, &mode);
+}
+
 
 #else
 int socket_close(sock_t sockfd)
 {
     return close(sockfd);
 }
-
+#endif
 /*
 ** packi16() -- store a 16-bit int into a char buffer (like htons())
 */ 
@@ -341,4 +347,3 @@ extern void unpack(unsigned char *buf, char *format, ...)
     va_end(ap);
 }
 
-#endif

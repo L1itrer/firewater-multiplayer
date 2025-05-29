@@ -1,5 +1,6 @@
 #include <game.h>
 #include <common.h>
+#include <platform.h>
 
 GameState g_state = {0};
 

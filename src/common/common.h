@@ -15,7 +15,7 @@ typedef int sock_t;
 #define INVALID_SOCKET -1
 #endif //INVALID_SOCKET
 int socket_close(sock_t sockfd);
-
+int socket_setblocking(sock_t sockfd, int block);
 
 typedef enum MessageKind{
     PLAYER_QUEUE,

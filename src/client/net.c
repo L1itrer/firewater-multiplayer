@@ -1,3 +1,4 @@
+#include <platform.h>
 #include <common.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -67,6 +68,12 @@ sock_t server_connect(const char* ip, const char* port)
         fprintf(stdout, "[INFO]: Could not connect to server");
         // exit(1);
         return INVALID_SOCKET;
+    }
+    if (socket_setblocking(serverfd, 1) != 0)
+    {
+        printf("Failed to set non-blocking mode\n");
+        socket_close(serverfd);
+        return -1;
     }
     g_connection = serverfd;
     return serverfd;
