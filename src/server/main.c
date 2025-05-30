@@ -16,6 +16,7 @@
 #define MAX_GAMES 5
 #define MAX_CONNECTIONS (MAX_GAMES * 2 + 1)
 
+
 typedef struct Pollfds {
     Pollfd fds[MAX_CONNECTIONS];
     int game_index[MAX_CONNECTIONS];
@@ -44,6 +45,7 @@ void pollfds_remove(Pollfds* pollfds, int index)
 {
     assert(index >= 0 && "pollfds_remove(): index lower than 0\n");
     socket_close(pollfds->fds[index].fd);
+    int game_index = pollfds->game_index[index];
     pollfds->fds[index] = pollfds->fds[pollfds->count - 1];
     pollfds->game_index[index] = pollfds->game_index[pollfds->count - 1];
     reset_pollfd(&pollfds->fds[pollfds->count-1]);
@@ -152,20 +154,22 @@ void game_start()
 
 void games_add_player(Pollfds* sockets, Games* games, sock_t connfd)
 {
-    pollfds_add(sockets, connfd, games->count);
     //we don't count the listening socket
     if ((sockets->count-1) % 2 == 0)
     {
-        // even connections == someone is waiting for a game
-        games->game[games->count].other_socket_index = sockets->count - 1;
+        // even connections == no one is waiting - put the player into the queue
+        pollfds_add(sockets, connfd, games->count);
+        games->game[games->count].player_socket_index = sockets->count - 1;
+        games->game[games->count].other_socket_index = -1;
         games->count += 1;
-        game_start();
+
     }
     else
     {
-        // odd connections == no one is waiting - put the player into the queue
-        games->game[games->count].player_socket_index = sockets->count - 1;
-        games->game[games->count].other_socket_index = -1;
+        // even connections == someone is waiting for a game
+        pollfds_add(sockets, connfd, games->count-1);
+        games->game[games->count - 1].other_socket_index = sockets->count - 1;
+        game_start();
     }
 }
 
@@ -175,6 +179,8 @@ void game_reset(SingleGameState* game)
     game->player_socket_index = -1;
 }
 
+// this goddamn function should:
+// 
 void games_remove_game(Pollfds* sockets, Games* games, int game_index)
 {
     games->game[game_index] = games->game[games->count - 1];
@@ -184,22 +190,30 @@ void games_remove_game(Pollfds* sockets, Games* games, int game_index)
     games->count -= 1;
 }
 
+void games_restore_state(Pollfds* pfd, Games* games)
+{
+    for (int i = 1;i < pfd->count;++i)
+    {
+        int game_index = pfd->game_index[i];
+        if (i % 2 != 0) games->game[game_index].player_socket_index = i;
+        else games->game[game_index].other_socket_index = i;
+    }
+}
+
+
 void games_remove_player(Pollfds* sockets, Games* games, int index)
 {
     int player_game_index = sockets->game_index[index];
     int player_index = games->game[player_game_index].player_socket_index;
     pollfds_remove(sockets, player_index);
     int other_index = games->game[player_game_index].other_socket_index;
+    games_remove_game(sockets, games, player_game_index);
     if (other_index != -1) 
     {
         // remove the same index twice because other player index just landed there
         pollfds_remove(sockets, player_index);
-        games_remove_game(sockets, games, player_game_index);
     }
-    else
-    {
-        games->count -= 1;
-    }
+    games_restore_state(sockets, games);
 }
 
 void handle_new_connection(sock_t serverfd, Pollfds* sockets, Games* games)
