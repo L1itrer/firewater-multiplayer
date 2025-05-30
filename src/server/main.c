@@ -183,6 +183,7 @@ void game_reset(SingleGameState* game)
 // 
 void games_remove_game(Pollfds* sockets, Games* games, int game_index)
 {
+    // hey me from the future if you're wondering how this works, don't bother, i don't know
     games->game[game_index] = games->game[games->count - 1];
     sockets->game_index[games->game[game_index].player_socket_index] = game_index;
     sockets->game_index[games->game[game_index].other_socket_index] = game_index;

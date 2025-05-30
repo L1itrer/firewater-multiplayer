@@ -42,4 +42,5 @@ unsigned int pack(unsigned char *buf, char *format, ...);
 void unpack(unsigned char *buf, char *format, ...);
 
 #define TODO(msg) assert(0 && msg)
+#define UNREACHABLE() assert(0 && "Unreachable!\n")
 #endif COMMON_H

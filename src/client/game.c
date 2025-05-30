@@ -4,7 +4,7 @@
 // TODO: REMOVE ANY C LIB FUNCTIONS FROM THIS FILE
 #include <stdio.h> // for testing purposes
 
-GameState g_state = {0};
+Game g_game = {0};
 
 int game_init(const char* ip, const char* port)
 {
@@ -29,5 +29,28 @@ void game_draw()
 void game_poll()
 {
     char buffer[128] = {0};
-    server_is_data_available();
+    poll_keyboard();
+    if (server_is_data_available())
+    {
+
+    }
+}
+
+void key_change(int key_code, int player, bool keydown)
+{
+    assert(player == PLAYER_LOCAL || player == PLAYER_NETWORK && "Unexpected player!\n");
+    switch (key_code)
+    {
+        case 'a':
+            g_game.player[player].left = keydown;
+            break;
+        case 'd':
+            g_game.player[player].right = keydown;
+            break;
+        case 's':
+            g_game.player[player].jump = keydown;
+            break;
+        default:
+            break;
+    }
 }
