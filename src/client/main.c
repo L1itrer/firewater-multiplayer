@@ -16,18 +16,20 @@ void draw_rectangle(Rect r, ColorHSV c)
 
 int main(void)
 {
+    InitWindow(800, 600, "Hello from client!");
     if (!game_init("127.0.0.1", SERVER_PORT))
     {
         printf("Error when connecting\n");
         return 1;
     }
-    InitWindow(800, 600, "Hello from client!");
 
+    char buffer[128] = {0};
     while (!WindowShouldClose())
     {
         BeginDrawing();
         ClearBackground(GetColor(0x181818));
         DrawText("well", 380, 300, 24, GOLD);
+        game_poll();
         game_update();
         game_draw();
         EndDrawing();

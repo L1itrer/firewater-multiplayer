@@ -24,17 +24,29 @@ typedef struct Pollfds {
 
 void pollfds_add(Pollfds* pollfds, sock_t fd, int game_index)
 {
+    assert((pollfds->count + 1) <= MAX_CONNECTIONS && "pollfds_add(): trying to add over capacity\n");
     Pollfd temp = { 0 };
     temp.fd = fd;
-    temp.events = POLLIN | POLLHUP;
+    temp.events = POLLIN; //| POLLHUP;
     pollfds->game_index[pollfds->count] = game_index;
     pollfds->fds[pollfds->count] = temp;
     pollfds->count += 1;
 }
 
+void reset_pollfd(Pollfd* pfd)
+{
+    pfd->fd = -1;
+    pfd->events = 0;
+    pfd->revents = 0;
+}
+
 void pollfds_remove(Pollfds* pollfds, int index)
 {
+    assert(index >= 0 && "pollfds_remove(): index lower than 0\n");
+    socket_close(pollfds->fds[index].fd);
     pollfds->fds[index] = pollfds->fds[pollfds->count - 1];
+    pollfds->game_index[index] = pollfds->game_index[pollfds->count - 1];
+    reset_pollfd(&pollfds->fds[pollfds->count-1]);
     pollfds->count -= 1;
 }
 
@@ -46,6 +58,11 @@ typedef struct Games {
     SingleGameState game[MAX_GAMES];
     int count;
 }Games;
+
+typedef struct ServerState {
+    Games games;
+    Pollfds pollfds;
+}ServerState;
 
 void server_setup(void)
 {
@@ -133,6 +150,58 @@ void game_start()
 
 }
 
+void games_add_player(Pollfds* sockets, Games* games, sock_t connfd)
+{
+    pollfds_add(sockets, connfd, games->count);
+    //we don't count the listening socket
+    if ((sockets->count-1) % 2 == 0)
+    {
+        // even connections == someone is waiting for a game
+        games->game[games->count].other_socket_index = sockets->count - 1;
+        games->count += 1;
+        game_start();
+    }
+    else
+    {
+        // odd connections == no one is waiting - put the player into the queue
+        games->game[games->count].player_socket_index = sockets->count - 1;
+        games->game[games->count].other_socket_index = -1;
+    }
+}
+
+void game_reset(SingleGameState* game)
+{
+    game->other_socket_index = -1;
+    game->player_socket_index = -1;
+}
+
+void games_remove_game(Pollfds* sockets, Games* games, int game_index)
+{
+    games->game[game_index] = games->game[games->count - 1];
+    sockets->game_index[games->game[game_index].player_socket_index] = game_index;
+    sockets->game_index[games->game[game_index].other_socket_index] = game_index;
+    game_reset(&games->game[games->count - 1]);
+    games->count -= 1;
+}
+
+void games_remove_player(Pollfds* sockets, Games* games, int index)
+{
+    int player_game_index = sockets->game_index[index];
+    int player_index = games->game[player_game_index].player_socket_index;
+    pollfds_remove(sockets, player_index);
+    int other_index = games->game[player_game_index].other_socket_index;
+    if (other_index != -1) 
+    {
+        // remove the same index twice because other player index just landed there
+        pollfds_remove(sockets, player_index);
+        games_remove_game(sockets, games, player_game_index);
+    }
+    else
+    {
+        games->count -= 1;
+    }
+}
+
 void handle_new_connection(sock_t serverfd, Pollfds* sockets, Games* games)
 {
     struct sockaddr addr = { 0 };
@@ -152,32 +221,52 @@ void handle_new_connection(sock_t serverfd, Pollfds* sockets, Games* games)
         socket_close(connfd);
         return;
     }
+    //TODO: print some info about the player
     printf("[INFO]: New client connected!\n");
 
-    for (int i = 0;i < sockets->count;++i)
-    {
-        sock_t sock = sockets->fds[i].fd;
-        if (sock == serverfd) continue;
-        send(sock, "someone joined!", 15, 0);
-    }
+    games_add_player(sockets, games, connfd);
 
-    // even connections == someone is waiting for a game
-    // 
-    //if (sockets->count % 2 == 0)
-    //{
-    //    pollfds_add(sockets, connfd, games->count);
-    //    games->game[games->count].other_socket_index = sockets->count - 1; // we just added one
-    //    game_start(); // TODO
-    //}
-    //else
-    //{
 
-    //}
 }
 
-void handle_client_msg()
+int get_other_player_index(Pollfds* sockets, Games* games, int index)
 {
+    int player_game_index = sockets->game_index[index];
+    int player_socket_index = games->game[player_game_index].player_socket_index;
+    sock_t player_socket = sockets->fds[player_socket_index].fd;
+    sock_t searched_player = sockets->fds[index].fd;
+    if (player_socket == searched_player)
+    {
+        return games->game[player_game_index].other_socket_index;
+    }
+    else
+    {
+        return games->game[player_game_index].player_socket_index;
+    }
+}
 
+void handle_client_msg(Pollfds* sockets, Games* games, int index)
+{
+    short revents = sockets->fds[index].revents;
+    if (revents & POLLHUP)
+    {
+        printf("[INFO]: Client disconnected!\n");
+        //int other_player_index = get_other_player_index(sockets, games, index);
+        //pollfds_remove(sockets, index);
+        games_remove_player(sockets, games, index);
+        
+    }
+}
+
+void games_init(Games* games)
+{
+    for (int i = 0;i < MAX_GAMES;++i)
+    {
+        games->game[i].other_socket_index = -1;
+        games->game[i].player_socket_index = -1;
+    }
+    games->count = 0;
+    
 }
 
 int main(void)
@@ -185,7 +274,10 @@ int main(void)
     server_setup();
     struct addrinfo* server_info;
     struct sockaddr addr = { 0 };
-    Games games = { 0 };
+    Games games;
+    games_init(&games);
+    memset(&games, -1, sizeof(games));
+    games.count = 0;
     Pollfds sockets = { 0 };
     if (server_get_addresses(&server_info) != 0) return 1;
     sock_t server_fd = server_bind(server_info);
@@ -242,7 +334,7 @@ int main(void)
                 }
                 else
                 {
-                    handle_client_msg(); // TODO
+                    handle_client_msg(&sockets, &games, i); // TODO
                 }
                 ready_to_read_count -= 1;
             }

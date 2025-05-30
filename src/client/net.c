@@ -69,12 +69,12 @@ sock_t server_connect(const char* ip, const char* port)
         exit(1);
         return INVALID_SOCKET;
     }
-    //if (socket_setblocking(serverfd, 1) != 0)
-    //{
-    //    printf("Failed to set non-blocking mode\n");
-    //    socket_close(serverfd);
-    //    return -1;
-    //}
+    if (socket_setblocking(serverfd, 1) != 0)
+    {
+       printf("Failed to set non-blocking mode\n");
+       socket_close(serverfd);
+       return -1;
+    }
     g_connection = serverfd;
     return serverfd;
 }
@@ -87,3 +87,26 @@ int server_recv(const char* buffer, size_t max_size)
     return recv(g_connection, buffer, (int) max_size, 0);
 }
 
+int server_is_data_available()
+{
+    char buffer[1]; // Buffer to hold the data
+    int result = recv(g_connection, buffer, sizeof(buffer), MSG_PEEK);
+    if (result > 0) {
+        // Data is available
+        return 1;
+    } else if (result == 0) {
+        // Connection has been closed
+        exit(0);
+    } else {
+        // An error occurred
+        int error_code = WSAGetLastError();
+        if (error_code == WSAEWOULDBLOCK) {
+            // No data available, non-blocking mode
+            return 0;
+        } else {
+            // Handle other errors
+            fprintf(stderr, "recv error: %d\n", error_code);
+            return -1;
+        }
+    }
+}
