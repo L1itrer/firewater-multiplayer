@@ -4,6 +4,7 @@
 #include <stdbool.h>
 void game_update();
 void game_draw();
+void game_poll();
 int game_init(const char* ip, const char* port);
 void key_change(int key_code, int player, bool keydown);
 
@@ -24,6 +25,8 @@ typedef enum GameState{
     AWAITING_CONNECTION,
     GAME_PLAYING
 }GameState;
+
+#define MOVEMENT_SPEED 10.0
 
 typedef struct Player{
     Vec2 position;

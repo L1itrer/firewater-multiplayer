@@ -18,21 +18,63 @@ int game_init(const char* ip, const char* port)
 
 void game_update()
 {
-
+    for (int i = 0;i < 2;++i)
+    {
+        Player* player = &g_game.player[i];
+        if (player->left)
+        {
+            player->position.x -= MOVEMENT_SPEED;
+        }
+        if (player->right)
+        {
+            player->position.x += MOVEMENT_SPEED;
+        }
+        if (player->jump)
+        {
+            player->position.y += 20.0;
+            player->jump = false;
+        }
+    }
 }
 
 void game_draw()
 {
-
+    draw_rectangle(
+        (Rect)
+        {
+            .x = g_game.player[PLAYER_LOCAL].position.x,
+            .y = g_game.player[PLAYER_LOCAL].position.y,
+            .width = 50.0,
+            .height = 50.0
+        },
+        (ColorHSV)
+        {
+            .hue = 0.0,
+            .saturation = 0.8,
+            .value = 0.8
+        }
+    );
 }
 
 void game_poll()
 {
     char buffer[128] = {0};
     poll_keyboard();
-    if (server_is_data_available())
+    if (false && server_is_data_available())
     {
-
+        server_recv(buffer, 128);
+        MessageKind message;
+        unpack(buffer, "l", &message);
+        switch (message)
+        {
+            case GAME_START:
+                break;
+            case PLAYER_MOVING:
+                break;
+            default:
+                UNREACHABLE();
+                break;
+        }
     }
 }
 
@@ -51,6 +93,7 @@ void key_change(int key_code, int player, bool keydown)
             g_game.player[player].jump = keydown;
             break;
         default:
+            UNREACHABLE();
             break;
     }
 }

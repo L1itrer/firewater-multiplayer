@@ -29,9 +29,8 @@ int socket_poll(Pollfd fds[], unsigned int count, int timeout);
 
 typedef enum MessageKind{
     PLAYER_QUEUE,
-    PLAYER_START,
 	PLAYER_MOVING,
-    JUMP,
+    GAME_START,
     SERVER_FULL
 }MessageKind;
 

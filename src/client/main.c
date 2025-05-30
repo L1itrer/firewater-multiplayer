@@ -19,20 +19,21 @@ void poll_keyboard()
     if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))  key_change('a', PLAYER_LOCAL, true);
     if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) key_change('d', PLAYER_LOCAL, true);
     if (IsKeyDown(KEY_S) || IsKeyDown(KEY_SPACE)) key_change('s', PLAYER_LOCAL, true);
-    if (IsKeyUp(KEY_A)   || IsKeyUp(KEY_LEFT))    key_change('a', PLAYER_LOCAL, false);
-    if (IsKeyUp(KEY_D)   || IsKeyUp(KEY_RIGHT))   key_change('d', PLAYER_LOCAL, false);
-    if (IsKeyUp(KEY_S)   || IsKeyUp(KEY_SPACE))   key_change('s', PLAYER_LOCAL, false);
+    if (IsKeyUp(KEY_A)   && IsKeyUp(KEY_LEFT))    key_change('a', PLAYER_LOCAL, false);
+    if (IsKeyUp(KEY_D)   && IsKeyUp(KEY_RIGHT))   key_change('d', PLAYER_LOCAL, false);
+    if (IsKeyUp(KEY_S)   && IsKeyUp(KEY_SPACE))   key_change('s', PLAYER_LOCAL, false);
 }
 
 
 int main(void)
 {
     InitWindow(800, 600, "Hello from client!");
-    if (!game_init("127.0.0.1", SERVER_PORT))
-    {
-        printf("Error when connecting\n");
-        return 1;
-    }
+    SetTargetFPS(60);
+    // if (!game_init("127.0.0.1", SERVER_PORT))
+    // {
+    //     printf("Error when connecting\n");
+    //     return 1;
+    // }
 
     char buffer[128] = {0};
     while (!WindowShouldClose())
