@@ -22,8 +22,8 @@ typedef struct ColorHSV{
 }ColorHSV;
 
 typedef enum GameState{
-    AWAITING_CONNECTION,
-    GAME_PLAYING
+    GS_AWAITING_CONNECTION,
+    GS_GAME_PLAYING
 }GameState;
 
 #define MOVEMENT_SPEED 10.0
@@ -35,6 +35,12 @@ typedef struct Player{
 
 #define PLAYER_LOCAL 0
 #define PLAYER_NETWORK 1
+
+typedef enum Direction{
+    LEFT = 'a',
+    RIGHT = 'd',
+    JUMP = 's'
+}Direction;
 
 typedef struct Game{
     Player player[2];

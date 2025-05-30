@@ -147,9 +147,17 @@ sock_t server_bind(struct addrinfo *info)
     return sockfd;
 }
 
-void game_start()
+void game_start(Pollfds* fds, SingleGameState game)
 {
-
+    char buffer[8] = { 0 };
+    MessageKind msg = GAME_START;
+    pack(buffer, "l", msg);
+    int player1 = game.player_socket_index;
+    int player2 = game.other_socket_index;
+    sock_t player1_sock = fds->fds[player1].fd;
+    sock_t player2_sock = fds->fds[player2].fd;
+    send(player1_sock, buffer, 4, 0);
+    send(player2_sock, buffer, 4, 0);
 }
 
 void games_add_player(Pollfds* sockets, Games* games, sock_t connfd)
@@ -169,7 +177,7 @@ void games_add_player(Pollfds* sockets, Games* games, sock_t connfd)
         // even connections == someone is waiting for a game
         pollfds_add(sockets, connfd, games->count-1);
         games->game[games->count - 1].other_socket_index = sockets->count - 1;
-        game_start();
+        game_start(sockets, games->game[games->count - 1]);
     }
 }
 
@@ -271,6 +279,16 @@ void handle_client_msg(Pollfds* sockets, Games* games, int index)
         games_remove_player(sockets, games, index);
         
     }
+    if (revents & POLLIN)
+    {
+        // TODO some actual error checking
+        char buffer[128] = { 0 };
+        sock_t sending_sock = sockets->fds[index].fd;
+        int count = recv(sending_sock, buffer, 128, 0);
+        int recv_index = get_other_player_index(sockets, games, index);
+        sock_t receiving_sock = sockets->fds[recv_index].fd;
+        send(receiving_sock, buffer, count, 0);
+    }
 }
 
 void games_init(Games* games)
@@ -313,7 +331,7 @@ int main(void)
     int addrlen = sizeof(addr);
     for (;;)
     {
-        int ready_to_read_count = socket_poll(sockets.fds, sockets.count, 50);
+        int ready_to_read_count = socket_poll(sockets.fds, sockets.count, 10);
         if (ready_to_read_count == SOCKET_ERROR)
         {
             int error_code = WSAGetLastError();
