@@ -6,6 +6,7 @@
 #include <stdio.h> // for testing purposes
 
 Game g_game = {0};
+int local_player = 0; // TODO: it does not have to be always 0!
 
 int game_init(const char* ip, const char* port)
 {
@@ -25,18 +26,18 @@ void game_play()
     for (int i = 0;i < 2;++i)
     {
         Player* player = &g_game.player[i];
-        if (player->left)
+        if (player->actions[ACTION_LEFT])
         {
             player->position.x -= MOVEMENT_SPEED;
         }
-        if (player->right)
+        if (player->actions[ACTION_RIGHT])
         {
             player->position.x += MOVEMENT_SPEED;
         }
-        if (player->jump)
+        if (player->actions[ACTION_JUMP])
         {
             player->position.y += 5.0f;
-            player->jump = false;
+            player->actions[ACTION_JUMP] = false;
         }
     }
 }
@@ -88,6 +89,12 @@ void game_draw_players()
     );
 }
 
+void game_draw_server_full()
+{
+     platform_draw_text("Server full", 100, 200, 56, 
+                (ColorHSV){.hue=0.0f, .saturation=0.0f, .value=0.9f});
+}
+
 void game_draw()
 {
     switch (g_game.state)
@@ -98,6 +105,9 @@ void game_draw()
             break;
         case GS_GAME_PLAYING:
             game_draw_players();
+            break;
+        case GS_SERVER_FULL:
+            game_draw_server_full();
             break;
     }
 
@@ -114,9 +124,12 @@ void game_poll()
     if (server_is_data_available())
     {
         char buffer[128] = {0};
-        server_recv(buffer, 128);
+        int32_t packet_size = 0;
         MessageKind message;
-        unpack(buffer, "l", &message);
+        server_recv(buffer, 128);
+        unpack(buffer, "ll", &packet_size, &message);
+        printf("Received %d bytes\n", packet_size);
+        debug_buffer_print(buffer, packet_size);
         switch (message)
         {
             case GAME_START:
@@ -125,44 +138,44 @@ void game_poll()
             case PLAYER_MOVING:
                 Direction direction;
                 bool keydown;
-                unpack(buffer, "llc", &message, &direction, &keydown);
+                unpack(buffer+8, "lc", &direction, &keydown);
                 key_change(direction, PLAYER_NETWORK, keydown);
                 break;
+            case SERVER_FULL:
+                g_game.state = GS_SERVER_FULL;
+                break;
             default:
-                // UNREACHABLE();
+                UNREACHABLE();
                 break;
         }
     }
 }
+
 
 void send_key_change(int key_code, bool keydown)
 {
     MessageKind msg = PLAYER_MOVING;
     Direction dir = key_code;
     char buffer[128] = {0};
-    int count = pack(buffer, "llc", msg, dir, keydown);
-    server_send(buffer, count);
+    int32_t packet_size = pack(buffer, "lllc", 0, msg, dir, keydown);
+    pack(buffer, "l", packet_size);
+    printf("Sending %d bytes\n", packet_size);
+    debug_buffer_print(buffer, packet_size);
+    server_send(buffer, packet_size);
+}
+
+void local_key_change(int key_code, bool keydown)
+{
+    if (g_game.player[local_player].actions[key_code] != keydown)
+    {
+        send_key_change(key_code, keydown);
+    }
+    key_change(key_code, local_player, keydown);
 }
 
 void key_change(int key_code, int player, bool keydown)
 {
     assert(player == PLAYER_LOCAL || player == PLAYER_NETWORK && "Unexpected player!\n");
-    switch (key_code)
-    {
-        case 'a':
-            g_game.player[player].left = keydown;
-            send_key_change(key_code, keydown);
-            break;
-        case 'd':
-            g_game.player[player].right = keydown;
-            send_key_change(key_code, keydown);
-            break;
-        case 's':
-            g_game.player[player].jump = keydown;
-            send_key_change(key_code, keydown);
-            break;
-        default:
-            UNREACHABLE();
-            break;
-    }
+    assert(key_code < 4 && key_code >= 0 && "Invalid key code!\n");
+    g_game.player[local_player].actions[key_code] = keydown;
 }

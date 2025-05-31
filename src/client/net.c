@@ -91,20 +91,30 @@ int server_is_data_available()
 {
     char buffer[1]; // Buffer to hold the data
     int result = recv(g_connection, buffer, sizeof(buffer), MSG_PEEK);
-    if (result > 0) {
-        // Data is available
+    if (result > 0) 
+    {
+        // data is available
         return 1;
-    } else if (result == 0) {
-        // Connection has been closed
+    } else if (result == 0) 
+    {
+        // connection has been closed
         exit(0);
     } else {
-        // An error occurred
+        // an error occurred
         int error_code = WSAGetLastError();
-        if (error_code == WSAEWOULDBLOCK) {
+        if (error_code == WSAEWOULDBLOCK) 
+        {
             // No data available, non-blocking mode
             return 0;
-        } else {
-            // Handle other errors
+        }
+        else if (error_code == WSAECONNABORTED)
+        {
+            // connection closed but DIFFERENTLY
+            // i love microsoft
+            exit(0);
+        }         
+        else 
+        {
             fprintf(stderr, "recv error: %d\n", error_code);
             return -1;
         }

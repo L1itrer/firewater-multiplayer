@@ -39,6 +39,7 @@ typedef enum MessageKind{
 
 unsigned int pack(unsigned char *buf, char *format, ...);
 void unpack(unsigned char *buf, char *format, ...);
+void debug_buffer_print(unsigned char* buffer, int max_len);
 
 #define TODO(msg) assert(0 && msg)
 #define UNREACHABLE() assert(0 && "Unreachable!\n")

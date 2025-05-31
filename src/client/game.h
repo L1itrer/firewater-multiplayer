@@ -23,14 +23,20 @@ typedef struct ColorHSV{
 
 typedef enum GameState{
     GS_AWAITING_CONNECTION,
-    GS_GAME_PLAYING
+    GS_GAME_PLAYING,
+    GS_SERVER_FULL
 }GameState;
 
 #define MOVEMENT_SPEED 10.0
 
+#define ACTION_LEFT 0
+#define ACTION_RIGHT 1
+#define ACTION_JUMP 2
+#define ACTION_UNUSED 3
+#define ACTION_COUNT 4
 typedef struct Player{
     Vec2 position;
-    bool right, left, jump;
+    bool actions[4];
 }Player;
 
 #define PLAYER_LOCAL 0

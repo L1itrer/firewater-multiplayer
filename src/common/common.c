@@ -354,3 +354,13 @@ extern void unpack(unsigned char *buf, char *format, ...)
     va_end(ap);
 }
 
+void debug_buffer_print(unsigned char* buffer, int len)
+{
+    int i = 0;
+    printf("[");
+    for (;i < len;++i)
+    {
+        printf("%x, ", buffer[i]);
+    }
+    printf("]: len: %d\n", i);
+}
