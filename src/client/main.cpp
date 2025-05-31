@@ -1,5 +1,7 @@
 #include <raylib.h>
-#include <common.h>
+extern "C" {
+    #include <common.h>
+}
 #include <game.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -10,7 +12,7 @@
 void platform_draw_rectangle(Rect r, ColorHSV c)
 {
     Rectangle rec = {
-        .x = r.x, .y = r.y, .width = r.width, .height = r.height
+        r.x, r.y, r.width, r.height
     };
     Color color = COLOR_FROM_HSV(c);
     DrawRectangleRec(rec, color);

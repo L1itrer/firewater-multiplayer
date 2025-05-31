@@ -2,11 +2,13 @@
 #define GAME_H
 #include <common.h>
 #include <stdbool.h>
+
 void game_update();
 void game_draw();
 void game_poll();
 int game_init(const char* ip, const char* port);
 void key_change(int key_code, int player, bool keydown);
+void local_key_change(int key_code, bool keydown);
 
 
 typedef struct Vec2{

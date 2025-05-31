@@ -36,11 +36,15 @@ typedef enum MessageKind{
 
 
 #define SERVER_PORT "2137"
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 unsigned int pack(unsigned char *buf, char *format, ...);
 void unpack(unsigned char *buf, char *format, ...);
 void debug_buffer_print(unsigned char* buffer, int max_len);
-
+#ifdef __cplusplus
+}
+#endif
 #define TODO(msg) assert(0 && msg)
 #define UNREACHABLE() assert(0 && "Unreachable!\n")
 #endif COMMON_H
