@@ -6,7 +6,8 @@
 #include <stdio.h> // for testing purposes
 
 Game g_game = {0};
-int local_player = 0; // TODO: it does not have to be always 0!
+int g_local_player = -1; // TODO: it does not have to be always 0!
+int g_network_player= -1;
 
 int game_init(const char* ip, const char* port)
 {
@@ -60,8 +61,8 @@ void game_draw_players()
     platform_draw_rectangle(
         (Rect)
         {
-            .x = g_game.player[PLAYER_LOCAL].position.x,
-            .y = g_game.player[PLAYER_LOCAL].position.y,
+            .x = g_game.player[g_local_player].position.x,
+            .y = g_game.player[g_local_player].position.y,
             .width = 50.0f,
             .height = 50.0f
         },
@@ -75,8 +76,8 @@ void game_draw_players()
         platform_draw_rectangle(
         (Rect)
         {
-            .x = g_game.player[PLAYER_NETWORK].position.x,
-            .y = g_game.player[PLAYER_NETWORK].position.y,
+            .x = g_game.player[g_network_player].position.x,
+            .y = g_game.player[g_network_player].position.y,
             .width = 50.0f,
             .height = 50.0f
         },
@@ -113,8 +114,11 @@ void game_draw()
 
 
 }
-void game_start()
+void game_start(int local_player)
 {
+    g_local_player = local_player;
+    g_network_player = local_player == 0 ? 1 : 0;
+    printf("Local player: %d, Network player: %d\n", g_local_player, g_network_player);
     g_game.state = GS_GAME_PLAYING;
 }
 
@@ -133,13 +137,15 @@ void game_poll()
         switch (message)
         {
             case GAME_START:
-                game_start();
+                int local_player;
+                unpack(buffer+8, "l", &local_player);
+                game_start(local_player);
                 break;
             case PLAYER_MOVING:
                 Direction direction;
                 bool keydown;
                 unpack(buffer+8, "lc", &direction, &keydown);
-                key_change(direction, PLAYER_NETWORK, keydown);
+                key_change(direction, g_network_player, keydown);
                 break;
             case SERVER_FULL:
                 g_game.state = GS_SERVER_FULL;
@@ -166,16 +172,16 @@ void send_key_change(int key_code, bool keydown)
 
 void local_key_change(int key_code, bool keydown)
 {
-    if (g_game.player[local_player].actions[key_code] != keydown)
+    if (g_game.player[g_local_player].actions[key_code] != keydown)
     {
         send_key_change(key_code, keydown);
     }
-    key_change(key_code, local_player, keydown);
+    key_change(key_code, g_local_player, keydown);
 }
 
 void key_change(int key_code, int player, bool keydown)
 {
     assert(player == PLAYER_LOCAL || player == PLAYER_NETWORK && "Unexpected player!\n");
     assert(key_code < 4 && key_code >= 0 && "Invalid key code!\n");
-    g_game.player[local_player].actions[key_code] = keydown;
+    g_game.player[player].actions[key_code] = keydown;
 }

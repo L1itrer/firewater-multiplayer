@@ -149,15 +149,17 @@ sock_t server_bind(struct addrinfo *info)
 
 void game_start(Pollfds* fds, SingleGameState game)
 {
-    char buffer[8] = { 0 };
+    char buffer[16] = { 0 };
     MessageKind msg = GAME_START;
-    int32_t pack_size = 8;
-    pack(buffer, "ll", pack_size, msg);
+    int32_t pack_size = 12;
     int player1 = game.player_socket_index;
     int player2 = game.other_socket_index;
     sock_t player1_sock = fds->fds[player1].fd;
     sock_t player2_sock = fds->fds[player2].fd;
+    pack(buffer, "lll", pack_size, msg, 0); // zero and 1 are local player id's
     send(player1_sock, buffer, pack_size, 0);
+    memset(buffer, 0, sizeof(buffer));
+    pack(buffer, "lll", pack_size, msg, 1);
     send(player2_sock, buffer, pack_size, 0);
 }
 
