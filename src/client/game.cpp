@@ -4,7 +4,7 @@ extern "C" {
 }
 #include <platform.h>
 #include <stdint.h>
-// TODO: REMOVE ANY C LIB FUNCTIONS FROM THIS FILE
+// TODO: REMOVE ANY STDLIB FUNCTIONS FROM THIS FILE
 #include <stdio.h> // for testing purposes
 
 Game g_game = {0};
@@ -33,11 +33,11 @@ void game_play()
         {
             player->position.x -= MOVEMENT_SPEED;
         }
-        if (player->actions[ACTION_RIGHT])
+        else if (player->actions[ACTION_RIGHT])
         {
             player->position.x += MOVEMENT_SPEED;
         }
-        if (player->actions[ACTION_JUMP])
+        else if (player->actions[ACTION_JUMP])
         {
             player->position.y += 5.0f;
             player->actions[ACTION_JUMP] = false;
@@ -118,6 +118,8 @@ void game_poll()
         unsigned char buffer[128] = {0};
         int32_t packet_size = 0;
         MessageKind message;
+        uint32_t x, y;
+        float fx, fy;
         server_recv((const char*)buffer, 128);
         unpack(buffer, "ll", &packet_size, &message);
         printf("Received %d bytes\n", packet_size);
@@ -132,7 +134,16 @@ void game_poll()
             case PLAYER_MOVING:
                 Direction direction;
                 bool keydown;
-                unpack(buffer+8, "lc", &direction, &keydown);
+
+                unpack(buffer+8, "lllc", &direction, &x, &y, &keydown);
+                if (!keydown)
+                {
+                    fx = *(float*)&x;
+                    fy = *(float*)&y;
+                    printf("%f %f\n", fx, fy);
+                    g_game.player[g_network_player].position.x = fx;
+                    g_game.player[g_network_player].position.y = fy;
+                }
                 key_change(direction, g_network_player, keydown);
                 break;
             case SERVER_FULL:
@@ -151,7 +162,10 @@ void send_key_change(int key_code, bool keydown)
     MessageKind msg = PLAYER_MOVING;
     int32_t dir = key_code;
     unsigned char buffer[128] = {0};
-    int32_t packet_size = pack(buffer, "lllc", 0, msg, dir, keydown);
+    uint32_t x = *(uint32_t*)&g_game.player[g_local_player].position.x;
+    uint32_t y = *(uint32_t*)&g_game.player[g_local_player].position.y;
+    // printf("%f %f\n", x, y);
+    int32_t packet_size = pack(buffer, "lllllc", 0, msg, dir, x, y, keydown);
     pack(buffer, "l", packet_size);
     printf("Sending %d bytes\n", packet_size);
     debug_buffer_print(buffer, packet_size);
