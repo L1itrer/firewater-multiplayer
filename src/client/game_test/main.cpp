@@ -1,9 +1,24 @@
-﻿#include "raylib.h"
+﻿
+extern "C" {
+#include <raylib.h>
+#include "net.h"
+}
 #include <vector>
+#include <algorithm>
+#include <cmath>
 #include <string>
+#include <cassert>
 #include <unordered_map>
 #include <memory>
+#include "common.h"
 
+using namespace std;
+
+#define ACTION_LEFT 0
+#define ACTION_RIGHT 1
+#define ACTION_JUMP 2
+#define ACTION_UNUSED 3
+#define ACTION_COUNT 4
 
 class ResourceManager {
 public:
@@ -60,11 +75,12 @@ public:
     int       id;               // na przyszłość – do rozróżniania graczy w sieci
     Type      type;
     float     speed = 200.0f;
-    float     jumpVel = -350.0f;
+    float     jumpVel = -500.0f;
     float     radius = 20.0f;   // jeżeli chcemy kolizje okrągłe – lub zastąmy prostokątem
     Color     drawColor;           // gdy brak tekstury
     Texture2D spriteTexture;       
-    Rect      spriteSrc;           
+    Rectangle      spriteSrc;    
+    // int playerColor;
     InputState input;
 
     bool      onGround = false;
@@ -247,6 +263,7 @@ public:
             float dt = GetFrameTime();
 
             netMgr.PollInputs(players);
+            this->HandleLocalInput(dt);
 
             for (auto& p : players) {
                 p->Update(dt, level->platforms);
@@ -257,13 +274,13 @@ public:
                 netMgr.SendState(*p);
             }
 
-            for (auto& mp : movingPlatforms) {
-                mp->Update(dt, level->platforms);
-            }
+            //for (auto& mp : level.get()->movingPlatforms {
+            //     mp->Update(dt, level->platforms);
+            //}
 
-            for (auto& ie : interactiveEntities) {
-                ie->Update(dt, level->platforms);
-            }
+            //for (auto& ie : interactiveEntities) {
+            //     ie->Update(dt, level->platforms);
+            //}
 
             //śledzimy pierwszego gracza (Fire)
             camera.target = { players[0]->position.x, players[0]->position.y };
@@ -273,14 +290,14 @@ public:
             ClearBackground(RAYWHITE);
 
             // rysujemy wszystko w przestrzeni świata (kamery)
-            BeginMode2D(camera);
+            // BeginMode2D(camera);
 
             level->Draw();
             for (auto& p : players) {
                 p->Draw();
             }
 
-            EndMode2D();
+            // EndMode2D();
 
             DrawText("Fire  &  Water - Demo", 10, 10, 20, DARKGRAY);
 
@@ -307,9 +324,70 @@ private:
         players[0]->input.jump = IsKeyPressed(KEY_W);
 
         // Gracz 1: Strzałki
-        players[1]->input.moveLeft = IsKeyDown(KEY_LEFT);
-        players[1]->input.moveRight = IsKeyDown(KEY_RIGHT);
-        players[1]->input.jump = IsKeyPressed(KEY_UP);
+        // players[1]->input.moveLeft = IsKeyDown(KEY_LEFT);
+        // players[1]->input.moveRight = IsKeyDown(KEY_RIGHT);
+        // players[1]->input.jump = IsKeyPressed(KEY_UP);
+    }
+    void poll_keyboard()
+    {
+        if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT))  local_key_change(ACTION_LEFT, true);
+        if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) local_key_change(ACTION_RIGHT, true);
+        if (IsKeyDown(KEY_S) || IsKeyDown(KEY_SPACE)) local_key_change(ACTION_JUMP, true);
+        if (IsKeyUp(KEY_A)   && IsKeyUp(KEY_LEFT))    local_key_change(ACTION_LEFT, false);
+        if (IsKeyUp(KEY_D)   && IsKeyUp(KEY_RIGHT))   local_key_change(ACTION_RIGHT, false);
+        if (IsKeyUp(KEY_S)   && IsKeyUp(KEY_SPACE))   local_key_change(ACTION_JUMP, false);
+    }
+
+    void local_key_change(int key_code, bool keydown)
+    {
+        bool currentValue = false;
+        switch (key_code)
+        {
+            case ACTION_LEFT:
+                currentValue = players[0]->input.moveLeft;
+                break;
+            case ACTION_RIGHT:
+                currentValue = players[0]->input.moveRight;
+                break;
+            case ACTION_JUMP:
+                currentValue = players[0]->input.jump;
+                break;
+        }
+        if (keydown != currentValue)
+        {
+            send_key_change(key_code, keydown);
+        }
+
+        key_change(key_code, 0, keydown);
+    }
+
+    void key_change(int key_code, int player_id, bool keydown)
+    {
+        assert(key_code < 4 && key_code >= 0 && "Invalid key code!\n");
+        switch (key_code)
+        {
+            case ACTION_LEFT:
+                players[player_id]->input.moveLeft = keydown;
+                break;
+            case ACTION_RIGHT:
+                players[player_id]->input.moveRight = keydown;
+                break;
+            case ACTION_JUMP:
+                players[player_id]->input.jump = keydown;
+                break;
+
+        }
+    }
+    void send_key_change(int key_code, bool keydown)
+    {
+        MessageKind msg = PLAYER_MOVING;
+        int32_t dir = key_code;
+        unsigned char buffer[128] = {0};
+        int32_t packet_size = pack(buffer, "lllc", 0, msg, dir, keydown);
+        pack(buffer, "l", packet_size);
+        printf("Sending %d bytes\n", packet_size);
+        debug_buffer_print(buffer, packet_size);
+        server_send((const char*)buffer, packet_size);
     }
 };
 
