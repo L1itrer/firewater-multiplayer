@@ -211,29 +211,36 @@ public:
 class NetworkManager {
 public:
     NetworkManager() {
+
     }
 
     ~NetworkManager() {
     }
 
-    void PollInputs(std::vector<std::unique_ptr<Player>>& players) {
-        for (auto& p : players) {
-            p->input.moveLeft = false;
-            p->input.moveRight = false;
-            p->input.jump = false;
-        }
- 
-    }
+
 
     void SendState(const Player& p) {
 
     }
+
 };
 
 class Game {
 public:
-    Game(int screenW, int screenH, const std::string& title)
-        : screenWidth(screenW), screenHeight(screenH), windowTitle(title)
+    enum State {
+        IN_QUEUE,
+        CONNECTING,
+        GAME_PLAYING,
+        SERVER_FULL
+    };
+    enum Direction {
+        LEFT,
+        RIGHT,
+        JUMP
+    };
+
+    Game(int screenW, int screenH, const std::string& title, State _state)
+        : screenWidth(screenW), screenHeight(screenH), windowTitle(title), state(_state)
     {}
 
     ~Game() {
@@ -243,36 +250,39 @@ public:
     }
 
     void Init() {
+        sock_t conn = server_connect("127.0.0.1", "2137");
+        if (conn == INVALID_SOCKET) exit(1);
         InitWindow(screenWidth, screenHeight, windowTitle.c_str());
-        InitAudioDevice();        // jeśli audio
+        //InitAudioDevice();        // jeśli audio
         SetTargetFPS(60);
 
-        level = std::make_unique<Level>();
 
-        players.push_back(std::make_unique<Player>(0, Player::FIRE, Vec2{ 100, 100 }));
-        players.push_back(std::make_unique<Player>(1, Player::WATER, Vec2{ 200, 100 }));
-
-        camera.target = { players[0]->position.x, players[0]->position.y };
-        camera.offset = { screenWidth / 2.0f, screenHeight / 2.0f };
-        camera.rotation = 0.0f;
-        camera.zoom = 1.0f;
+        //camera.target = { players[0]->position.x, players[0]->position.y };
+        //camera.offset = { screenWidth / 2.0f, screenHeight / 2.0f };
+        //camera.rotation = 0.0f;
+        //camera.zoom = 1.0f;
     }
 
     void Run() {
         while (!WindowShouldClose()) {
             float dt = GetFrameTime();
 
-            netMgr.PollInputs(players);
-            this->HandleLocalInput(dt);
-
-            for (auto& p : players) {
-                p->Update(dt, level->platforms);
+            //netMgr.PollInputs(players);
+            PollInputs();
+            if (state == State::GAME_PLAYING)
+            {
+                this->HandleLocalInput(dt);
+                for (auto& p : players) {
+                    p->Update(dt, level->platforms);
+                }
             }
 
 
-            for (auto& p : players) {
-                netMgr.SendState(*p);
-            }
+
+
+            //for (auto& p : players) {
+            //    netMgr.SendState();
+            //}
 
             //for (auto& mp : level.get()->movingPlatforms {
             //     mp->Update(dt, level->platforms);
@@ -283,19 +293,16 @@ public:
             //}
 
             //śledzimy pierwszego gracza (Fire)
-            camera.target = { players[0]->position.x, players[0]->position.y };
+            //camera.target = { players[0]->position.x, players[0]->position.y };
 
             // 6) Rysowanie
             BeginDrawing();
-            ClearBackground(RAYWHITE);
+            ClearBackground(GetColor(0x181818));
 
             // rysujemy wszystko w przestrzeni świata (kamery)
             // BeginMode2D(camera);
 
-            level->Draw();
-            for (auto& p : players) {
-                p->Draw();
-            }
+            Draw();
 
             // EndMode2D();
 
@@ -305,9 +312,80 @@ public:
         }
     }
 
+    void Draw()
+    {
+        switch (state)
+        {
+            case GAME_PLAYING:
+                level->Draw();
+                for (auto& p : players) {
+                    p->Draw();
+                }
+                break;
+            case CONNECTING:
+                // TODO
+                break;
+            case IN_QUEUE:
+                DrawText("IN QUEUE", 100, 200, 56, GOLD);
+                break;
+            case SERVER_FULL:
+                DrawText("SERVER FULL", 100, 200, 56, GOLD);
+                break;
+        }
+    }
+
+    
+
+    void PollInputs() {
+        if (server_is_data_available())
+        {
+            unsigned char buffer[128] = { 0 };
+            int32_t packet_size = 0;
+            MessageKind message;
+            server_recv((const char*)buffer, 128);
+            unpack(buffer, "ll", &packet_size, &message);
+            printf("Received %d bytes\n", packet_size);
+            debug_buffer_print(buffer, packet_size);
+            switch (message)
+            {
+            case GAME_START:
+                int local_player;
+                unpack(buffer + 8, "l", &local_player);
+                Start(local_player);
+                break;
+            case PLAYER_MOVING:
+                int32_t direction;
+                bool keydown;
+                unpack(buffer + 8, "lc", &direction, &keydown);
+                key_change(direction, local_player_id == 0 ? 1 : 0, keydown);
+                break;
+            case SERVER_FULL:
+                state = State::SERVER_FULL;
+                break;
+            default:
+                UNREACHABLE();
+                break;
+            }
+        }
+    }
+    void Start(int local_player)
+    {
+
+        level = std::make_unique<Level>();
+
+        players.push_back(std::make_unique<Player>(local_player, Player::FIRE, Vec2{ 100, 100 }));
+        players.push_back(std::make_unique<Player>((local_player == 0 ? 1 : 0), Player::WATER, Vec2{ 200, 100 }));
+
+        this->local_player_id = local_player;
+        this->state = State::GAME_PLAYING;
+    }
+    
+    State state;
 private:
+
     int    screenWidth;
     int    screenHeight;
+    int local_player_id;
     std::string windowTitle;
 
     std::unique_ptr<Level> level;
@@ -319,10 +397,10 @@ private:
     // Przykład lokalnego sterowania (tylko do testów, bez sieci)
     void HandleLocalInput(float dt) {
         // Gracz 0: WASD
-        players[0]->input.moveLeft = IsKeyDown(KEY_A);
-        players[0]->input.moveRight = IsKeyDown(KEY_D);
-        players[0]->input.jump = IsKeyPressed(KEY_W);
-
+        // players[local_player_id]->input.moveLeft = IsKeyDown(KEY_A);
+        // players[local_player_id]->input.moveRight = IsKeyDown(KEY_D);
+        // players[local_player_id]->input.jump = IsKeyPressed(KEY_W);
+        poll_keyboard();
         // Gracz 1: Strzałki
         // players[1]->input.moveLeft = IsKeyDown(KEY_LEFT);
         // players[1]->input.moveRight = IsKeyDown(KEY_RIGHT);
@@ -344,13 +422,13 @@ private:
         switch (key_code)
         {
             case ACTION_LEFT:
-                currentValue = players[0]->input.moveLeft;
+                currentValue = players[local_player_id]->input.moveLeft;
                 break;
             case ACTION_RIGHT:
-                currentValue = players[0]->input.moveRight;
+                currentValue = players[local_player_id]->input.moveRight;
                 break;
             case ACTION_JUMP:
-                currentValue = players[0]->input.jump;
+                currentValue = players[local_player_id]->input.jump;
                 break;
         }
         if (keydown != currentValue)
@@ -393,7 +471,7 @@ private:
 
 
 int main() {
-    Game game(800, 600, "Fire & Water - Scalable (Raylib + C++)");
+    Game game(800, 600, "Fire & Water - Scalable (Raylib + C++)", Game::State::IN_QUEUE);
     game.Init();
     game.Run();
     return 0;
