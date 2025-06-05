@@ -35,11 +35,12 @@ void platform_draw_text(const char* text, int x, int y, int font_size, ColorHSV 
 }
 
 
-int main(void)
+int main(int argc, const char* const* argv)
 {
+    const char* ip = argc >= 2 ? argv[1] : "127.0.0.1";
     InitWindow(800, 600, "Hello from client!");
     SetTargetFPS(60);
-    if (!game_init("127.0.0.1", SERVER_PORT))
+    if (!game_init(ip, SERVER_PORT))
     {
         printf("Error when connecting\n");
         return 1;
